@@ -38,6 +38,7 @@ export const SubmitButton = styled(RectButton)`
 export const List = styled.FlatList.attrs({
   showsVerticalScrollIndicator: false,
 })`
+  flex: 1;
   margin-top: 20px;
 `;
 
@@ -121,6 +122,7 @@ export const BioPerfil = styled.Text`
 export const Stars = styled.FlatList.attrs({
   showsVerticalScrollIndicator: false,
 })`
+  flex: 1;
   margin-top: 20px;
 `;
 

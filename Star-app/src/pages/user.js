@@ -7,9 +7,14 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
+import { Stars } from '../styles';
 import api from "../services/api";
 
 export default class User extends Component {
+  getImageUrl = (character) => {
+    if (!character || !character.id) return 'https://via.placeholder.com/200x250/cccccc/666666?text=No+Image';
+    return `https://starwars-visualguide.com/assets/img/characters/${character.id}.jpg`;
+  };
   state = {
     films: [],
     species: [],
@@ -78,7 +83,7 @@ export default class User extends Component {
         <View style={styles.header}>
           <Image
             source={{
-              uri: character.image,
+              uri: this.getImageUrl(character),
             }}
             style={styles.characterImage}
             defaultSource={{ uri: 'https://via.placeholder.com/200x250/cccccc/666666?text=No+Image' }}
@@ -147,13 +152,17 @@ export default class User extends Component {
               {starships.length > 0 && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Naves Espaciais</Text>
-                  {starships.map((starship, index) => (
-                    <View key={index} style={styles.listItem}>
-                      <Text style={styles.itemTitle}>{starship.name}</Text>
-                      <Text style={styles.itemDescription}>Modelo: {starship.model}</Text>
-                      <Text style={styles.itemDescription}>Fabricante: {starship.manufacturer}</Text>
-                    </View>
-                  ))}
+                  <Stars
+                    data={starships}
+                    keyExtractor={(item, index) => index.toString()}
+                    renderItem={({ item }) => (
+                      <View style={styles.listItem}>
+                        <Text style={styles.itemTitle}>{item.name}</Text>
+                        <Text style={styles.itemDescription}>Modelo: {item.model}</Text>
+                        <Text style={styles.itemDescription}>Fabricante: {item.manufacturer}</Text>
+                      </View>
+                    )}
+                  />
                 </View>
               )}
             </>
@@ -177,17 +186,17 @@ const styles = StyleSheet.create({
     borderBottomColor: '#FFD700',
   },
   characterImage: {
-    width: 160,
-    height: 220,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
+  width: 200,
+  height: 260,
+  borderRadius: 16,
+  marginBottom: 20,
+  borderWidth: 2,
+  borderColor: '#FFD700',
+  shadowColor: '#FFD700',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.6,
+  shadowRadius: 8,
+  elevation: 8,
   },
   characterName: {
     fontSize: 28,

@@ -2,13 +2,13 @@ import React, { Component } from "react";
 import { 
   View, 
   Text, 
-  FlatList, 
   StyleSheet, 
   ActivityIndicator, 
   TouchableOpacity,
   Image,
   Alert
 } from "react-native";
+import { List } from '../styles';
 import api from "../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -208,11 +208,10 @@ export default class Main extends Component {
             <Text style={styles.loadingText}>Carregando personagens da galáxia...</Text>
           </View>
         ) : (
-          <FlatList
+          <List
             data={characters}
             keyExtractor={(item) => item.id.toString()}
             renderItem={this.renderCharacter}
-            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
           />
         )}
