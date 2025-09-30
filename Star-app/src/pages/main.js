@@ -1,42 +1,59 @@
-import React, { Component } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator, 
-  TouchableOpacity,
-  Image,
-  Alert
-} from "react-native";
-import { List } from '../styles';
-import api from "../services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// ===================================================================
+// TELA PRINCIPAL - LISTA DE PERSONAGENS STAR WARS
+// ===================================================================
+// Esta tela exibe uma lista de personagens do Star Wars obtidos da SWAPI
+// Permite adicionar novos personagens aleatórios e navegar para detalhes
 
-// Componente para imagem com fallback
+import React, { Component } from "react";
+import {
+  View,          // Container básico
+  Text,          // Componente de texto
+  FlatList,      // Lista otimizada para grandes datasets
+  TouchableOpacity, // Botão tocável
+  StyleSheet,    // Sistema de estilos
+  ActivityIndicator, // Indicador de carregamento
+  Alert,         // Alertas nativos
+  Image,         // Componente de imagem
+  Platform       // Detecção de plataforma (iOS/Android/Web)
+} from "react-native";
+import api from "../services/api"; // Configuração da API SWAPI
+
+// ===================================================================
+// COMPONENTE DE IMAGEM COM FALLBACK
+// ===================================================================
+// Este componente tenta carregar imagens de múltiplas fontes
+// Se uma falhar, automaticamente tenta a próxima fonte disponível
 class CharacterImage extends Component {
   state = {
-    currentImageIndex: 0,
-    imageError: false
+    currentImageIndex: 0, // Índice da URL atual sendo tentada
+    imageError: false    // Flag para indicar se todas as URLs falharam
   };
 
+  // Retorna array de URLs de imagem em ordem de prioridade
   getImageUrls = (character) => {
     const id = character.id;
     const name = encodeURIComponent(character.name.replace(/\s+/g, '+'));
     
     return [
+      // 1ª opção: Star Wars Visual Guide (melhor qualidade)
       `https://starwars-visualguide.com/assets/img/characters/${id}.jpg`,
+      // 2ª opção: Galeria alternativa
       `https://vieraboschkova.github.io/swapi-gallery/static/assets/img/people/${id}.jpg`,
+      // 3ª opção: Placeholder personalizado com nome do personagem
       `https://via.placeholder.com/300x400/1a1a2e/FFD700?text=${name}`,
     ];
   };
 
+  // Chamada quando uma imagem falha ao carregar
   handleImageError = () => {
     const { currentImageIndex } = this.state;
     const imageUrls = this.getImageUrls(this.props.character);
     
+    // Se ainda há URLs para tentar, vai para a próxima
     if (currentImageIndex < imageUrls.length - 1) {
       this.setState({ currentImageIndex: currentImageIndex + 1 });
     } else {
+      // Se todas falharam, mostra placeholder personalizado
       this.setState({ imageError: true });
     }
   };
@@ -49,7 +66,7 @@ class CharacterImage extends Component {
     if (imageError) {
       return (
         <View style={[style, { backgroundColor: '#1a1a2e', justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: '#FFD700', fontSize: 16 }}>⭐ {character.name} ⭐</Text>
+          <Text style={{ color: '#FFD700', fontSize: 16, textAlign: 'center' }}>⭐ {character.name} ⭐</Text>
         </View>
       );
     }
@@ -65,118 +82,141 @@ class CharacterImage extends Component {
   }
 }
 
+// ===================================================================
+// COMPONENTE PRINCIPAL DA TELA
+// ===================================================================
+// Gerencia o estado da aplicação e interações do usuário
 export default class Main extends Component {
   state = {
-    characters: [],
-    loading: false,
-    nextPage: null,
+    characters: [], // Array de personagens carregados da API
+    loading: false, // Flag de carregamento para UX
   };
-
-
 
   async componentDidMount() {
     this.loadCharacters();
-    const savedCharacters = await AsyncStorage.getItem("starwars_characters");
-    if (savedCharacters) {
-      this.setState({ characters: JSON.parse(savedCharacters) });
-    }
   }
 
-  componentDidUpdate(_, prevState) {
-    const { characters } = this.state;
-    if (prevState.characters !== characters) {
-      AsyncStorage.setItem("starwars_characters", JSON.stringify(characters));
-    }
-  }
-
+  // Carrega os primeiros 10 personagens da SWAPI
   loadCharacters = async () => {
+    this.setState({ loading: true }); // Mostra indicador de carregamento
     try {
-      this.setState({ loading: true });
+      // Faz requisição para a API do Star Wars
       const response = await api.get("people/");
-      const charactersWithImages = response.data.results.map((character, index) => {
-        const characterId = character.url.split('/').slice(-2, -1)[0];
-        return {
-          ...character,
-          id: characterId,
-        };
-      });
       
-      this.setState({
-        characters: charactersWithImages,
-        nextPage: response.data.next,
-        loading: false,
-      });
+      // Adiciona ID baseado na posição para cada personagem
+      const charactersWithId = response.data.results.map((character, index) => ({
+        ...character,        // Spread dos dados originais da API
+        id: index + 1       // ID incremental para identificação única
+      }));
+      
+      // Atualiza o estado com os personagens carregados
+      this.setState({ characters: charactersWithId });
     } catch (error) {
-      console.log("Erro ao carregar personagens:", error);
-      this.setState({ loading: false });
-      Alert.alert("Erro", "Não foi possível carregar os personagens");
+      // Tratamento de erro com feedback para o usuário
+      Alert.alert("Erro", "Não foi possível carregar os personagens da galáxia");
+      console.log("Erro ao buscar personagens:", error);
     }
+    this.setState({ loading: false }); // Esconde indicador de carregamento
   };
 
+  // Adiciona um personagem aleatório da SWAPI
   addRandomCharacter = async () => {
+    this.setState({ loading: true });
     try {
-      this.setState({ loading: true });
-      const randomId = Math.floor(Math.random() * 83) + 1; // SWAPI tem cerca de 83 personagens
-      const response = await api.get(`people/${randomId}/`);
+      // Gera ID aleatório (SWAPI tem aproximadamente 83 personagens)
+      const randomId = Math.floor(Math.random() * 83) + 1;
       
+      // Busca personagem específico por ID
+      const response = await api.get(`people/${randomId}/`);
       const newCharacter = {
-        ...response.data,
-        id: randomId,
+        ...response.data, // Dados do personagem da API
+        id: randomId     // ID para identificação
       };
 
-      const { characters } = this.state;
-      if (characters.find(char => char.id === newCharacter.id)) {
-        Alert.alert("Aviso", "Este personagem já foi adicionado!");
-        this.setState({ loading: false });
-        return;
+      // Verifica se o personagem já foi adicionado à lista
+      const exists = this.state.characters.some(char => char.id === randomId);
+      if (!exists) {
+        // Adiciona ao estado usando spread operator para imutabilidade
+        this.setState(prevState => ({
+          characters: [...prevState.characters, newCharacter]
+        }));
+      } else {
+        Alert.alert("Aviso", "Este personagem já está na lista!");
       }
-
-      this.setState({
-        characters: [...characters, newCharacter],
-        loading: false,
-      });
     } catch (error) {
-      console.log("Erro ao adicionar personagem:", error);
-      this.setState({ loading: false });
-      Alert.alert("Erro", "Não foi possível adicionar o personagem");
+      // Tratamento de erro para requisições que falham
+      Alert.alert("Erro", "Não foi possível adicionar novo personagem");
+      console.log("Erro ao buscar personagem:", error);
+    }
+    this.setState({ loading: false });
+  };
+
+  // Remove personagem da lista usando filter
+  removeCharacter = (characterToRemove) => {
+    // Cria nova array excluindo o personagem selecionado
+    const updatedCharacters = this.state.characters.filter(
+      character => character.id !== characterToRemove.id
+    );
+    // Atualiza estado com a lista filtrada
+    this.setState({ characters: updatedCharacters });
+  };
+
+  // Navega para tela de detalhes do personagem
+  navigateToDetails = (character) => {
+    console.log("Navigating to details with character:", character);
+    
+    // Validações de segurança antes da navegação
+    if (!character) {
+      Alert.alert("Erro", "Dados do personagem não encontrados");
+      return;
+    }
+    
+    if (!this.props.navigation) {
+      console.error("Navigation not available");
+      return;
+    }
+    
+    try {
+      // Navega para tela "user" passando dados do personagem
+      this.props.navigation.navigate("user", { character });
+    } catch (error) {
+      console.error("Navigation error:", error);
+      Alert.alert("Erro", "Não foi possível navegar para os detalhes");
     }
   };
 
-  removeCharacter = (characterId) => {
-    const { characters } = this.state;
-    this.setState({
-      characters: characters.filter(char => char.id !== characterId)
-    });
-  };
-
-  renderCharacter = ({ item }) => (
-    <View style={styles.card}>
+  renderCharacter = ({ item: character }) => (
+    <View style={styles.characterCard}>
+      {/* Container da Imagem */}
       <View style={styles.imageContainer}>
         <CharacterImage 
-          character={item}
+          character={character}
           style={styles.characterImage}
         />
         <View style={styles.imageOverlay}>
-          <Text style={styles.overlayText}>{item.name}</Text>
+          <Text style={styles.characterName}>{character.name}</Text>
         </View>
       </View>
+
+      {/* Informações do Card */}
       <View style={styles.cardContent}>
-        <Text style={styles.characterInfo}>⚡ Altura: {item.height}cm</Text>
-        <Text style={styles.characterInfo}>⚖️ Peso: {item.mass}kg</Text>
-        <Text style={styles.characterInfo}>👁️ Olhos: {item.eye_color}</Text>
-        <Text style={styles.characterInfo}>👤 Gênero: {item.gender}</Text>
-        
+        <Text style={styles.characterInfo}>⚡ Altura: {character.height}cm</Text>
+        <Text style={styles.characterInfo}>⚖️ Peso: {character.mass}kg</Text>
+        <Text style={styles.characterInfo}>👁️ Olhos: {character.eye_color}</Text>
+        <Text style={styles.characterInfo}>👤 Gênero: {character.gender}</Text>
+
+        {/* Botões */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
-            style={[styles.button, styles.detailButton]}
-            onPress={() => this.props.navigation.navigate("user", { character: item })}
+            style={styles.detailsButton}
+            onPress={() => this.navigateToDetails(character)}
           >
-            <Text style={styles.buttonText}>Ver Mais Detalhes</Text>
+            <Text style={styles.buttonText}>Ver Detalhes</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
-            style={[styles.button, styles.deleteButton]}
-            onPress={() => this.removeCharacter(item.id)}
+            style={styles.deleteButton}
+            onPress={() => this.removeCharacter(character)}
           >
             <Text style={styles.buttonText}>Excluir</Text>
           </TouchableOpacity>
@@ -187,32 +227,39 @@ export default class Main extends Component {
 
   render() {
     const { characters, loading } = this.state;
-    
+
     return (
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.header}>
+          <Text style={styles.title}>🌟 PERSONAGENS STAR WARS 🌟</Text>
           <TouchableOpacity 
             style={styles.addButton}
             onPress={this.addRandomCharacter}
             disabled={loading}
           >
             <Text style={styles.addButtonText}>
-              {loading ? "Carregando..." : "ADD"}
+              {loading ? "Carregando..." : "+ ADICIONAR PERSONAGEM"}
             </Text>
           </TouchableOpacity>
         </View>
 
+        {/* Lista de Personagens */}
         {loading && characters.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FFD700" />
-            <Text style={styles.loadingText}>Carregando personagens da galáxia...</Text>
+            <Text style={styles.loadingText}>Carregando dados da galáxia...</Text>
           </View>
         ) : (
-          <List
+          <FlatList
             data={characters}
-            keyExtractor={(item) => item.id.toString()}
             renderItem={this.renderCharacter}
+            keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={true}
+            scrollEnabled={true}
+            nestedScrollEnabled={true}
+            style={{ flex: 1 }}
           />
         )}
       </View>
@@ -224,37 +271,47 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+    ...(Platform.OS === 'web' && {
+      height: '100vh',
+      maxHeight: '100vh',
+      overflow: 'hidden'
+    })
   },
   header: {
-    padding: 15,
     backgroundColor: '#0f0f23',
+    padding: 20,
     borderBottomWidth: 2,
     borderBottomColor: '#FFD700',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 15,
+    letterSpacing: 2,
+    textAlign: 'center',
+    // Removido textShadow* props para compatibilidade web
+    textShadow: '2px 2px 4px #FFA500',
   },
   addButton: {
     backgroundColor: '#FFD700',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    alignItems: 'center',
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: '#FFA500',
+    // Removido shadow* props para compatibilidade web
+    boxShadow: '0px 4px 8px rgba(255, 215, 0, 0.3)',
   },
   addButtonText: {
     color: '#000',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
     letterSpacing: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#000',
   },
   loadingText: {
     color: '#FFD700',
@@ -264,19 +321,20 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 15,
+    paddingBottom: 100,
+    ...(Platform.OS === 'web' && {
+      minHeight: '150vh'
+    })
   },
-  card: {
-    backgroundColor: '#0f0f23',
-    borderRadius: 12,
+  characterCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 15,
     marginBottom: 20,
-    elevation: 8,
-    shadowColor: '#FFD700',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#FFD700',
+    overflow: 'hidden',
+    // Removido elevation e shadow* para compatibilidade web
+    boxShadow: '0px 6px 12px rgba(255, 215, 0, 0.2)',
   },
   imageContainer: {
     position: 'relative',
@@ -293,35 +351,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  overlayText: {
-    color: '#FFD700',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  cardContent: {
-    padding: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
   },
   characterName: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 12,
     color: '#FFD700',
     textAlign: 'center',
     letterSpacing: 1,
-    textShadowColor: '#FFA500',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    // Removido textShadow* props para compatibilidade web
+    textShadow: '1px 1px 2px #FFA500',
+  },
+  cardContent: {
+    padding: 20,
   },
   characterInfo: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#C0C0C0',
-    marginBottom: 6,
+    marginBottom: 8,
     paddingLeft: 5,
   },
   buttonContainer: {
@@ -329,32 +378,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 15,
   },
-  button: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginHorizontal: 5,
-    elevation: 4,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-  },
-  detailButton: {
+  detailsButton: {
     backgroundColor: '#4169E1',
-    borderWidth: 1,
-    borderColor: '#6495ED',
-    shadowColor: '#4169E1',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flex: 0.48,
   },
   deleteButton: {
     backgroundColor: '#DC143C',
-    borderWidth: 1,
-    borderColor: '#FF6347',
-    shadowColor: '#DC143C',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    flex: 0.48,
   },
   buttonText: {
-    color: '#fff',
+    color: '#FFF',
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    textAlign: 'center',
+    fontSize: 14,
   },
 });
